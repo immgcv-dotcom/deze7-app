@@ -1,0 +1,6 @@
+-- As políticas e a função RPC foram aplicadas diretamente ao projeto Supabase.
+-- Este arquivo documenta a intenção de segurança:
+-- 1. anon: SELECT somente de produtos/variantes ativos;
+-- 2. authenticated admin: gerenciamento somente quando auth.uid() existe em deze7_admins;
+-- 3. pedidos públicos: somente via RPC deze7_create_order;
+-- 4. nenhuma chave service_role é usada no frontend.
