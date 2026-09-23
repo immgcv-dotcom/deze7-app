@@ -42,6 +42,80 @@ function auditActor(uid){
   const who=uid===currentStaff?.user_id?`Você · ${currentUserEmail}`:(s?.name||'Usuário não identificado');
   return `<small style="display:block;margin-top:4px;color:#8f8a82;font-size:11px">Lançado por: ${esc(who)}</small>`;
 }
+function ownerDeleteButton(kind,id,label='Excluir'){
+  if(!isAuditOwner())return '';
+  return `<button type="button" class="owner-delete-btn" data-owner-delete-kind="${esc(kind)}" data-owner-delete-id="${esc(id)}">${esc(label)}</button>`;
+}
+function ensureOwnerDeleteStyle(){
+  if(document.getElementById('ownerDeleteStyle'))return;
+  const style=document.createElement('style');
+  style.id='ownerDeleteStyle';
+  style.textContent=`
+    .owner-delete-btn{border:1px solid #6f2a2a;background:#1d1010;color:#ffb9b9;border-radius:9px;padding:7px 10px;font-size:12px;font-weight:800;cursor:pointer}
+    .owner-delete-btn:hover{background:#2a1111;border-color:#954141}
+    .owner-delete-btn:disabled{opacity:.55;cursor:wait}
+    .owner-actions{display:grid;gap:8px;margin-top:10px}
+    .owner-inline-delete{margin-left:8px;vertical-align:middle}
+  `;
+  document.head.appendChild(style);
+}
+async function handleOwnerDeleteClick(e){
+  const btn=e.target.closest?.('[data-owner-delete-kind]');
+  if(!btn)return;
+  e.preventDefault();
+  e.stopPropagation();
+  if(!isAuditOwner())return toast('Apenas o proprietário pode excluir registros.','error');
+
+  const kind=btn.dataset.ownerDeleteKind;
+  const id=btn.dataset.ownerDeleteId;
+  const cfg={
+    sale:{
+      rpc:'deze7_owner_delete_sale',param:'p_sale_id',
+      confirm:'Excluir esta venda? O estoque das peças usadas será devolvido automaticamente.',
+      success:'Venda excluída e estoque restaurado.'
+    },
+    expense:{
+      rpc:'deze7_owner_delete_expense',param:'p_expense_id',
+      confirm:'Excluir esta despesa definitivamente?',
+      success:'Despesa excluída.'
+    },
+    movement:{
+      rpc:'deze7_owner_delete_stock_movement',param:'p_movement_id',
+      confirm:'Excluir esta movimentação? O efeito dela no estoque será desfeito.',
+      success:'Movimentação excluída e estoque recalculado.'
+    },
+    customer:{
+      rpc:'deze7_owner_delete_customer',param:'p_customer_id',
+      confirm:'Excluir este cliente? Vendas antigas serão preservadas, apenas sem vínculo com o cadastro.',
+      success:'Cliente excluído.'
+    },
+    supplier:{
+      rpc:'deze7_owner_delete_supplier',param:'p_supplier_id',
+      confirm:'Excluir este fornecedor? Despesas antigas serão preservadas, apenas sem vínculo com o cadastro.',
+      success:'Fornecedor excluído.'
+    },
+    product:{
+      rpc:'deze7_owner_delete_product',param:'p_product_id',
+      confirm:'Excluir este produto definitivamente? O histórico financeiro de vendas antigas será preservado.',
+      success:'Produto excluído.'
+    }
+  }[kind];
+
+  if(!cfg)return;
+  if(!confirm(cfg.confirm))return;
+
+  btn.disabled=true;
+  const args={};args[cfg.param]=id;
+  const {data,error}=await sb.rpc(cfg.rpc,args);
+  if(error){
+    btn.disabled=false;
+    toast(error.message,'error');
+    return;
+  }
+
+  await loadAll();
+  toast(cfg.success);
+}
 
 function toast(message,type='ok'){
   const t=$('toast'); t.textContent=message; t.className=`toast show ${type}`;
@@ -148,6 +222,11 @@ function bindUI(){
   $('closeSupplierEditor').onclick=()=>togglePanel('supplierEditor',false);
   $('supplierForm').onsubmit=saveSupplier;
   $('reportMonth').onchange=renderReports;
+  ensureOwnerDeleteStyle();
+  if(!document.body.dataset.ownerDeleteBound){
+    document.addEventListener('click',handleOwnerDeleteClick);
+    document.body.dataset.ownerDeleteBound='1';
+  }
 }
 function togglePanel(id,open){$(id).classList.toggle('hidden',!open);if(open)$(id).scrollIntoView({behavior:'smooth',block:'start'})}
 function showView(view){
@@ -434,7 +513,7 @@ async function saveSale(){
 function renderSalesHistory(){
   const q=$('salesSearch').value.trim().toLowerCase(),cm=customerMap();
   const rows=state.sales.filter(s=>!q||`${s.sale_number} ${cm[s.customer_id]?.name||''} ${s.channel}`.toLowerCase().includes(q));
-  $('salesTable').innerHTML=rows.map(s=>{const margin=num(s.total)-num(s.cogs);return `<tr><td><b>#${s.sale_number}</b></td><td>${dateTimeBR(s.sale_date)}${auditActor(s.seller_id)}</td><td>${esc(cm[s.customer_id]?.name||'Balcão')}</td><td><span class="tag">${esc(s.channel)}</span></td><td><b>${money(s.total)}</b></td><td class="finance-col">${money(s.cogs)}</td><td class="finance-col"><span class="positive">${money(margin)}</span></td></tr>`}).join('')||`<tr><td colspan="7"><div class="empty-state compact">Nenhuma venda encontrada.</div></td></tr>`;
+  $('salesTable').innerHTML=rows.map(s=>{const margin=num(s.total)-num(s.cogs);return `<tr><td><b>#${s.sale_number}</b>${isAuditOwner()?`<span class="owner-inline-delete">${ownerDeleteButton('sale',s.id)}</span>`:''}</td><td>${dateTimeBR(s.sale_date)}${auditActor(s.seller_id)}</td><td>${esc(cm[s.customer_id]?.name||'Balcão')}</td><td><span class="tag">${esc(s.channel)}</span></td><td><b>${money(s.total)}</b></td><td class="finance-col">${money(s.cogs)}</td><td class="finance-col"><span class="positive">${money(margin)}</span></td></tr>`}).join('')||`<tr><td colspan="7"><div class="empty-state compact">Nenhuma venda encontrada.</div></td></tr>`;
   applyRoleUI();
 }
 
@@ -445,7 +524,7 @@ function renderProducts(){
     const stock=bundle?bundleAvailability(p.id):totalStock(p.id);
     const margin=(!bundle&&p.cost!=null)?num(p.price)-num(p.cost):null;
     const pct=margin==null||!num(p.price)?null:(margin/num(p.price))*100;
-    return `<article class="product-card"><div class="product-photo"><img src="${esc(imageFor(p))}" alt="${esc(p.name)}"><div class="product-badges"><span>${esc(p.color_name||p.category)}</span>${bundle?'<span>Kit montável</span>':p.category==='camiseta'?`<span>${esc(designLabel(p.design))}</span>`:''}</div></div><div class="product-card-content"><div class="product-title-row"><h3>${esc(p.name)}</h3><span class="status-dot ${p.active?'on':'off'}"></span></div><div class="product-numbers"><div><span>Venda</span><strong>${money(p.price)}</strong></div><div class="finance-only"><span>Custo</span><strong>${bundle?'Dinâmico':p.cost==null?'—':money(p.cost)}</strong></div><div class="finance-only"><span>Margem</span><strong>${bundle?'Dinâmica':pct==null?'—':pct.toFixed(0)+'%'}</strong></div><div><span>${bundle?'Kits possíveis':'Estoque'}</span><strong>${stock}</strong></div></div>${can('product-edit')?`<button class="btn btn-secondary full" data-edit-product="${p.id}">Editar produto</button>`:''}</div></article>`
+    return `<article class="product-card"><div class="product-photo"><img src="${esc(imageFor(p))}" alt="${esc(p.name)}"><div class="product-badges"><span>${esc(p.color_name||p.category)}</span>${bundle?'<span>Kit montável</span>':p.category==='camiseta'?`<span>${esc(designLabel(p.design))}</span>`:''}</div></div><div class="product-card-content"><div class="product-title-row"><h3>${esc(p.name)}</h3><span class="status-dot ${p.active?'on':'off'}"></span></div><div class="product-numbers"><div><span>Venda</span><strong>${money(p.price)}</strong></div><div class="finance-only"><span>Custo</span><strong>${bundle?'Dinâmico':p.cost==null?'—':money(p.cost)}</strong></div><div class="finance-only"><span>Margem</span><strong>${bundle?'Dinâmica':pct==null?'—':pct.toFixed(0)+'%'}</strong></div><div><span>${bundle?'Kits possíveis':'Estoque'}</span><strong>${stock}</strong></div></div><div class="owner-actions">${can('product-edit')?`<button class="btn btn-secondary full" data-edit-product="${p.id}">Editar produto</button>`:''}${ownerDeleteButton('product',p.id,'Excluir produto')}</div></div></article>`
   }).join('')||'<div class="empty-state">Nenhum produto encontrado.</div>';
   $$('[data-edit-product]').forEach(b=>b.onclick=()=>openProductEditor(b.dataset.editProduct));applyRoleUI();
 }
@@ -489,7 +568,7 @@ function renderStock(){
     return `<div class="stock-product"><div class="stock-product-info"><img src="${esc(imageFor(p))}" alt=""><div><strong>${esc(p.name)}</strong><span>${esc(descriptor)}</span><small>${vs.map(v=>esc(v.sku)).join(' · ')}</small></div></div><div class="stock-sizes">${vs.sort((a,b)=>String(a.size).localeCompare(String(b.size))).map(v=>`<div class="stock-size-card ${num(v.stock)===0?'zero':num(v.stock)<=num(v.min_stock??3)?'low':''}"><span>${esc(v.size||'-')}</span><strong>${v.stock}</strong><small>unidades</small>${can('stock')?`<button class="text-btn" data-adjust-stock="${v.id}">Ajustar</button>`:''}</div>`).join('')}</div></div>`
   }).join('')||'<div class="empty-state">Nenhum produto encontrado.</div>';
   $$('[data-adjust-stock]').forEach(b=>b.onclick=()=>adjustStock(b.dataset.adjustStock));
-  const vm=variantMap();$('movementTable').innerHTML=state.movements.slice(0,150).map(m=>{const v=vm[m.variant_id],p=v&&pm[v.product_id];return `<tr><td>${dateTimeBR(m.created_at)}</td><td>${esc(p?.name||'-')} · ${esc(v?.size||'')}</td><td><span class="tag">${esc(m.movement_type)}</span></td><td class="${num(m.quantity_delta)>0?'positive':'negative'}"><b>${num(m.quantity_delta)>0?'+':''}${m.quantity_delta}</b></td><td>${esc(m.reason||'-')}${auditActor(m.created_by)}</td></tr>`}).join('')||`<tr><td colspan="5"><div class="empty-state compact">Nenhuma movimentação.</div></td></tr>`;
+  const vm=variantMap();$('movementTable').innerHTML=state.movements.slice(0,150).map(m=>{const v=vm[m.variant_id],p=v&&pm[v.product_id];return `<tr><td>${dateTimeBR(m.created_at)}</td><td>${esc(p?.name||'-')} · ${esc(v?.size||'')}</td><td><span class="tag">${esc(m.movement_type)}</span></td><td class="${num(m.quantity_delta)>0?'positive':'negative'}"><b>${num(m.quantity_delta)>0?'+':''}${m.quantity_delta}</b></td><td>${esc(m.reason||'-')}${auditActor(m.created_by)}${isAuditOwner()&&m.reference_type!=='sale'&&m.movement_type!=='sale'?`<div style="margin-top:7px">${ownerDeleteButton('movement',m.id)}</div>`:''}</td></tr>`}).join('')||`<tr><td colspan="5"><div class="empty-state compact">Nenhuma movimentação.</div></td></tr>`;
 }
 async function adjustStock(id){
   if(!can('stock'))return;const v=variantMap()[id],p=productMap()[v.product_id];const target=prompt(`${p.name} · ${v.size}\nEstoque atual: ${v.stock}\nDigite o NOVO saldo:`);if(target===null)return;const next=Math.max(0,parseInt(target,10)||0),delta=next-num(v.stock);if(!delta)return;const reason=prompt('Motivo do ajuste:','Ajuste pelo painel')||'Ajuste pelo painel';const {error}=await sb.rpc('deze7_adjust_stock',{p_variant_id:id,p_quantity_delta:delta,p_reason:reason,p_movement_type:'adjustment'});if(error)return toast(error.message,'error');await loadAll();toast('Estoque atualizado.');
@@ -500,19 +579,19 @@ function renderExpenses(){
   const paid=month.filter(e=>e.status==='paid').reduce((a,e)=>a+num(e.amount),0),pending=state.expenses.filter(e=>e.status==='pending').reduce((a,e)=>a+num(e.amount),0),total=month.reduce((a,e)=>a+num(e.amount),0);
   $('expensePaidMonth').textContent=money(paid);$('expensePending').textContent=money(pending);$('expenseMonthTotal').textContent=money(total);
   const cm=categoryMap(),sm=supplierMap();const rows=state.expenses.filter(e=>!q||`${e.description} ${cm[e.category_id]?.name||''} ${sm[e.supplier_id]?.name||''}`.toLowerCase().includes(q));
-  $('expensesList').innerHTML=rows.map(e=>`<div class="finance-row"><div class="finance-date"><b>${dateBR(e.expense_date+'T12:00:00')}</b><span>${e.status==='paid'?'Pago':'Pendente'}</span></div><div class="finance-desc"><strong>${esc(e.description)}</strong><span>${esc(cm[e.category_id]?.name||'Sem categoria')} · ${esc(sm[e.supplier_id]?.name||'Sem fornecedor')}</span>${auditActor(e.created_by)}</div><div class="finance-value">${money(e.amount)}</div></div>`).join('')||'<div class="empty-state compact">Nenhuma despesa encontrada.</div>';
+  $('expensesList').innerHTML=rows.map(e=>`<div class="finance-row"><div class="finance-date"><b>${dateBR(e.expense_date+'T12:00:00')}</b><span>${e.status==='paid'?'Pago':'Pendente'}</span></div><div class="finance-desc"><strong>${esc(e.description)}</strong><span>${esc(cm[e.category_id]?.name||'Sem categoria')} · ${esc(sm[e.supplier_id]?.name||'Sem fornecedor')}</span>${auditActor(e.created_by)}</div><div class="finance-value">${money(e.amount)}${isAuditOwner()?`<div style="margin-top:7px">${ownerDeleteButton('expense',e.id)}</div>`:''}</div></div>`).join('')||'<div class="empty-state compact">Nenhuma despesa encontrada.</div>';
 }
 async function saveExpense(e){e.preventDefault();const payload={expense_date:$('expenseDate').value,category_id:$('expenseCategory').value||null,supplier_id:$('expenseSupplier').value||null,description:$('expenseDescription').value.trim(),amount:num($('expenseAmount').value),payment_method:$('expensePayment').value,status:$('expenseStatus').value,created_by:currentStaff.user_id};const {error}=await sb.from('deze7_expenses').insert(payload);if(error)return toast(error.message,'error');e.target.reset();$('expenseDate').value=todayISO();togglePanel('expenseEditor',false);await loadAll();toast('Despesa registrada.')}
 
 function renderCustomers(){
   if(!can('customer'))return;const q=$('customerSearch').value.trim().toLowerCase();
-  $('customersGrid').innerHTML=state.customers.filter(c=>!q||`${c.name} ${c.phone||''} ${c.email||''} ${c.city||''}`.toLowerCase().includes(q)).map(c=>{const sales=state.sales.filter(s=>s.customer_id===c.id&&s.status!=='cancelled'),spent=sales.reduce((a,s)=>a+num(s.total),0),last=sales[0]?.sale_date;return `<article class="contact-card"><div class="contact-avatar">${esc(c.name.split(/\s+/).slice(0,2).map(x=>x[0]).join('').toUpperCase())}</div><div class="contact-main"><h3>${esc(c.name)}</h3><p>${esc(c.phone||'Sem telefone')} · ${esc(c.city||'Cidade não informada')}</p><div class="contact-stats"><span><b>${sales.length}</b> compras</span><span><b>${money(spent)}</b> total</span><span><b>${last?dateBR(last):'—'}</b> última</span></div></div></article>`}).join('')||'<div class="empty-state">Nenhum cliente encontrado.</div>';
+  $('customersGrid').innerHTML=state.customers.filter(c=>!q||`${c.name} ${c.phone||''} ${c.email||''} ${c.city||''}`.toLowerCase().includes(q)).map(c=>{const sales=state.sales.filter(s=>s.customer_id===c.id&&s.status!=='cancelled'),spent=sales.reduce((a,s)=>a+num(s.total),0),last=sales[0]?.sale_date;return `<article class="contact-card"><div class="contact-avatar">${esc(c.name.split(/\s+/).slice(0,2).map(x=>x[0]).join('').toUpperCase())}</div><div class="contact-main"><h3>${esc(c.name)}</h3><p>${esc(c.phone||'Sem telefone')} · ${esc(c.city||'Cidade não informada')}</p><div class="contact-stats"><span><b>${sales.length}</b> compras</span><span><b>${money(spent)}</b> total</span><span><b>${last?dateBR(last):'—'}</b> última</span></div>${isAuditOwner()?`<div class="owner-actions">${ownerDeleteButton('customer',c.id,'Excluir cliente')}</div>`:''}</div></article>`}).join('')||'<div class="empty-state">Nenhum cliente encontrado.</div>';
 }
 async function saveCustomer(e){e.preventDefault();const {error}=await sb.from('deze7_customers').insert({name:$('customerName').value.trim(),phone:$('customerPhone').value.trim(),email:$('customerEmail').value.trim()||null,city:$('customerCity').value.trim()});if(error)return toast(error.message,'error');e.target.reset();togglePanel('customerEditor',false);await loadAll();toast('Cliente cadastrado.')}
 
 function renderSuppliers(){
   if(!can('supplier'))return;const expBySupplier={};state.expenses.forEach(e=>expBySupplier[e.supplier_id]=(expBySupplier[e.supplier_id]||0)+num(e.amount));
-  $('suppliersGrid').innerHTML=state.suppliers.map(s=>`<article class="supplier-card"><div class="supplier-top"><div class="contact-avatar">${esc(s.name.split(/\s+/).slice(0,2).map(x=>x[0]).join('').toUpperCase())}</div><span class="status-chip">Ativo</span></div><h3>${esc(s.name)}</h3><p>${esc(s.contact_name||'Sem contato principal')}</p><div class="supplier-contact"><span>${esc(s.phone||'—')}</span><span>${esc(s.email||'—')}</span></div>${can('finance')?`<div class="supplier-spend"><span>Gasto registrado</span><strong>${money(expBySupplier[s.id]||0)}</strong></div>`:''}</article>`).join('')||'<div class="empty-state">Nenhum fornecedor cadastrado.</div>';
+  $('suppliersGrid').innerHTML=state.suppliers.map(s=>`<article class="supplier-card"><div class="supplier-top"><div class="contact-avatar">${esc(s.name.split(/\s+/).slice(0,2).map(x=>x[0]).join('').toUpperCase())}</div><span class="status-chip">Ativo</span></div><h3>${esc(s.name)}</h3><p>${esc(s.contact_name||'Sem contato principal')}</p><div class="supplier-contact"><span>${esc(s.phone||'—')}</span><span>${esc(s.email||'—')}</span></div>${can('finance')?`<div class="supplier-spend"><span>Gasto registrado</span><strong>${money(expBySupplier[s.id]||0)}</strong></div>`:''}${isAuditOwner()?`<div class="owner-actions">${ownerDeleteButton('supplier',s.id,'Excluir fornecedor')}</div>`:''}</article>`).join('')||'<div class="empty-state">Nenhum fornecedor cadastrado.</div>';
 }
 async function saveSupplier(e){e.preventDefault();const {error}=await sb.from('deze7_suppliers').insert({name:$('supplierName').value.trim(),contact_name:$('supplierContact').value.trim(),phone:$('supplierPhone').value.trim(),email:$('supplierEmail').value.trim()||null});if(error)return toast(error.message,'error');e.target.reset();togglePanel('supplierEditor',false);await loadAll();toast('Fornecedor cadastrado.')}
 
