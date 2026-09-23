@@ -1,23 +1,203 @@
-<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#0b0b0b"><title>DEZE7 — Gestão</title><link rel="stylesheet" href="styles.css"></head><body class="mgmt-body">
-<div id="loginbox" class="mgmt-login"><div class="mgmt-login-card"><div class="brand">DEZE7</div><div class="eyebrow">SISTEMA INTERNO</div><h1>Gestão da marca</h1><p class="meta">Acesso restrito à equipe autorizada.</p><form id="loginform"><div class="field"><label>E-mail</label><input id="email" type="email" autocomplete="username" required></div><div class="field"><label>Senha</label><input id="password" type="password" autocomplete="current-password" required></div><button class="primary full">Entrar</button></form></div></div>
-<div id="mgmt" class="mgmt-shell hidden">
-<aside class="mgmt-sidebar"><div><div class="mgmt-logo">DEZE7</div><div class="mgmt-sub">GESTÃO INTERNA</div></div><nav class="mgmt-nav">
-<button class="active" data-view="dashboard">Visão geral</button><button data-view="sales">Vendas</button><button data-view="products">Produtos</button><button data-view="stock">Estoque</button><button data-view="expenses">Despesas</button><button data-view="customers">Clientes</button><button data-view="suppliers">Fornecedores</button><button data-view="reports">Relatórios</button>
-</nav><div class="mgmt-user"><div id="staffName">Equipe DEZE7</div><small id="staffRole"></small><button id="logout" class="ghost full">Sair</button></div></aside>
-<main class="mgmt-main"><header class="mgmt-top"><button id="menuBtn" class="ghost mobile-menu">Menu</button><div><div class="eyebrow" id="viewEyebrow">GESTÃO</div><h1 id="viewTitle">Visão geral</h1></div><div class="mgmt-date" id="today"></div></header>
-<section id="view-dashboard" class="mgmt-view">
-<div class="kpi-grid"><div class="kpi"><span>Vendas no mês</span><strong id="kpiRevenue">R$ 0</strong></div><div class="kpi"><span>Lucro estimado</span><strong id="kpiProfit">R$ 0</strong></div><div class="kpi"><span>Despesas no mês</span><strong id="kpiExpenses">R$ 0</strong></div><div class="kpi"><span>Unidades em estoque</span><strong id="kpiStock">0</strong></div><div class="kpi"><span>Vendas hoje</span><strong id="kpiToday">0</strong></div><div class="kpi"><span>Estoque baixo</span><strong id="kpiLow">0</strong></div></div>
-<div class="mgmt-grid-2"><div class="mgmt-card"><div class="card-title"><h2>Últimas vendas</h2><button class="linkbtn" data-go="sales">Ver vendas</button></div><div class="tablewrap"><table class="table"><thead><tr><th>Venda</th><th>Data</th><th>Total</th></tr></thead><tbody id="dashSales"></tbody></table></div></div><div class="mgmt-card"><div class="card-title"><h2>Atenção ao estoque</h2><button class="linkbtn" data-go="stock">Ver estoque</button></div><div class="tablewrap"><table class="table"><thead><tr><th>Produto</th><th>Tam.</th><th>Saldo</th></tr></thead><tbody id="dashLowStock"></tbody></table></div></div></div>
-</section>
-<section id="view-sales" class="mgmt-view hidden"><div class="mgmt-card"><div class="card-title"><h2>Registrar venda</h2><span class="meta">A venda baixa o estoque automaticamente.</span></div><form id="saleForm"><div class="formgrid cols-4"><div class="field"><label>Cliente</label><select id="saleCustomer"></select></div><div class="field"><label>Canal</label><select id="saleChannel"><option value="loja">Loja</option><option value="whatsapp">WhatsApp</option><option value="instagram">Instagram</option><option value="atacado">Atacado</option><option value="site">Site</option><option value="outro">Outro</option></select></div><div class="field"><label>Pagamento</label><select id="salePayment"><option>Pix</option><option>Dinheiro</option><option>Cartão débito</option><option>Cartão crédito</option><option>Transferência</option><option>Outro</option></select></div><div class="field"><label>Desconto (R$)</label><input id="saleDiscount" type="number" min="0" step="0.01" value="0"></div></div>
-<div class="sale-builder"><div class="formgrid cols-4"><div class="field span-2"><label>Produto / variação</label><select id="saleVariant"></select></div><div class="field"><label>Quantidade</label><input id="saleQty" type="number" min="1" value="1"></div><div class="field"><label>Preço unitário</label><input id="saleUnitPrice" type="number" min="0" step="0.01"></div></div><button type="button" id="addSaleItem" class="ghost">Adicionar item</button></div>
-<div class="tablewrap"><table class="table"><thead><tr><th>Produto</th><th>Qtd.</th><th>Preço</th><th>Total</th><th></th></tr></thead><tbody id="saleItems"></tbody></table></div><div class="sale-total"><span>Total da venda</span><strong id="saleTotal">R$ 0,00</strong></div><div class="field"><label>Observações</label><input id="saleNotes"></div><button class="primary">Finalizar venda</button></form></div>
-<div class="mgmt-card"><div class="card-title"><h2>Histórico de vendas</h2><input id="salesSearch" class="mini-input" placeholder="Buscar venda ou cliente"></div><div class="tablewrap"><table class="table"><thead><tr><th>Venda</th><th>Data</th><th>Cliente</th><th>Canal</th><th>Total</th><th>Custo</th><th>Margem</th></tr></thead><tbody id="salesTable"></tbody></table></div></div></section>
-<section id="view-products" class="mgmt-view hidden"><div class="mgmt-card"><div class="card-title"><h2>Cadastro de produto</h2><span class="meta">Cadastro interno. Não publica no site.</span></div><form id="productForm"><input id="productId" type="hidden"><div class="formgrid cols-4"><div class="field span-2"><label>Nome</label><input id="productName" required></div><div class="field"><label>Categoria</label><select id="productCategory"><option value="camiseta">Camiseta</option><option value="kit">Kit</option><option value="acessorio">Acessório</option></select></div><div class="field"><label>Status</label><select id="productActive"><option value="true">Ativo</option><option value="false">Inativo</option></select></div><div class="field"><label>Preço de venda</label><input id="productPrice" type="number" min="0" step="0.01" required></div><div class="field"><label>Custo unitário</label><input id="productCost" type="number" min="0" step="0.01"></div><div class="field"><label>Cor</label><input id="productColor"></div><div class="field"><label>Descrição</label><input id="productDescription"></div></div><button class="primary">Salvar produto</button><button type="button" id="clearProduct" class="ghost">Limpar</button></form></div><div class="mgmt-card"><div class="card-title"><h2>Produtos</h2><span class="meta">Preço, custo e margem interna.</span></div><div class="tablewrap"><table class="table"><thead><tr><th>Produto</th><th>Categoria</th><th>Preço</th><th>Custo</th><th>Margem</th><th>Status</th><th></th></tr></thead><tbody id="productsTable"></tbody></table></div></div></section>
-<section id="view-stock" class="mgmt-view hidden"><div class="mgmt-card"><div class="card-title"><h2>Posição de estoque</h2><span class="meta">Entradas, saídas e ajustes ficam registrados no histórico.</span></div><div class="tablewrap"><table class="table"><thead><tr><th>Produto</th><th>Cor</th><th>Tam.</th><th>SKU</th><th>Saldo</th><th>Ajuste</th></tr></thead><tbody id="stockTable"></tbody></table></div></div><div class="mgmt-card"><div class="card-title"><h2>Últimas movimentações</h2></div><div class="tablewrap"><table class="table"><thead><tr><th>Data</th><th>Produto</th><th>Tipo</th><th>Qtd.</th><th>Motivo</th></tr></thead><tbody id="movementTable"></tbody></table></div></div></section>
-<section id="view-expenses" class="mgmt-view hidden"><div class="mgmt-card"><div class="card-title"><h2>Lançar despesa</h2></div><form id="expenseForm"><div class="formgrid cols-4"><div class="field"><label>Data</label><input id="expenseDate" type="date" required></div><div class="field"><label>Categoria</label><select id="expenseCategory"></select></div><div class="field"><label>Fornecedor</label><select id="expenseSupplier"></select></div><div class="field"><label>Valor</label><input id="expenseAmount" type="number" min="0" step="0.01" required></div><div class="field span-2"><label>Descrição</label><input id="expenseDescription" required></div><div class="field"><label>Pagamento</label><select id="expensePayment"><option>Pix</option><option>Dinheiro</option><option>Cartão</option><option>Boleto</option><option>Transferência</option><option>Outro</option></select></div><div class="field"><label>Status</label><select id="expenseStatus"><option value="paid">Pago</option><option value="pending">Pendente</option></select></div></div><button class="primary">Salvar despesa</button></form></div><div class="mgmt-card"><div class="card-title"><h2>Despesas</h2><input id="expenseSearch" class="mini-input" placeholder="Buscar descrição"></div><div class="tablewrap"><table class="table"><thead><tr><th>Data</th><th>Categoria</th><th>Descrição</th><th>Fornecedor</th><th>Valor</th><th>Status</th></tr></thead><tbody id="expensesTable"></tbody></table></div></div></section>
-<section id="view-customers" class="mgmt-view hidden"><div class="mgmt-card"><div class="card-title"><h2>Novo cliente</h2></div><form id="customerForm"><div class="formgrid cols-4"><div class="field"><label>Nome</label><input id="customerName" required></div><div class="field"><label>Telefone</label><input id="customerPhone"></div><div class="field"><label>E-mail</label><input id="customerEmail" type="email"></div><div class="field"><label>Cidade</label><input id="customerCity"></div></div><button class="primary">Salvar cliente</button></form></div><div class="mgmt-card"><div class="card-title"><h2>Clientes</h2><input id="customerSearch" class="mini-input" placeholder="Buscar cliente"></div><div class="tablewrap"><table class="table"><thead><tr><th>Nome</th><th>Telefone</th><th>E-mail</th><th>Cidade</th></tr></thead><tbody id="customersTable"></tbody></table></div></div></section>
-<section id="view-suppliers" class="mgmt-view hidden"><div class="mgmt-card"><div class="card-title"><h2>Novo fornecedor</h2></div><form id="supplierForm"><div class="formgrid cols-4"><div class="field"><label>Empresa</label><input id="supplierName" required></div><div class="field"><label>Contato</label><input id="supplierContact"></div><div class="field"><label>Telefone</label><input id="supplierPhone"></div><div class="field"><label>E-mail</label><input id="supplierEmail" type="email"></div></div><button class="primary">Salvar fornecedor</button></form></div><div class="mgmt-card"><div class="card-title"><h2>Fornecedores</h2></div><div class="tablewrap"><table class="table"><thead><tr><th>Empresa</th><th>Contato</th><th>Telefone</th><th>E-mail</th></tr></thead><tbody id="suppliersTable"></tbody></table></div></div></section>
-<section id="view-reports" class="mgmt-view hidden"><div class="mgmt-card"><div class="card-title"><h2>Resultado do período</h2><div class="field report-month"><label>Mês</label><input id="reportMonth" type="month"></div></div><div class="kpi-grid report-kpis"><div class="kpi"><span>Faturamento</span><strong id="repRevenue">R$ 0</strong></div><div class="kpi"><span>CMV</span><strong id="repCogs">R$ 0</strong></div><div class="kpi"><span>Despesas</span><strong id="repExpenses">R$ 0</strong></div><div class="kpi"><span>Lucro estimado</span><strong id="repProfit">R$ 0</strong></div><div class="kpi"><span>Margem</span><strong id="repMargin">0%</strong></div></div></div><div class="mgmt-grid-2"><div class="mgmt-card"><div class="card-title"><h2>Vendas por canal</h2></div><div id="channelReport" class="report-list"></div></div><div class="mgmt-card"><div class="card-title"><h2>Despesas por categoria</h2></div><div id="expenseReport" class="report-list"></div></div></div></section>
-</main></div>
-<script src="config.js"></script><script type="module" src="admin.js"></script></body></html>
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#090909">
+  <title>DEZE7 — Gestão</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body class="mgmt-body">
+  <div id="toast" class="toast" aria-live="polite"></div>
+
+  <section id="loginbox" class="mgmt-login">
+    <div class="login-shell">
+      <div class="login-brand-panel">
+        <img src="assets/logo-deze7.png" alt="DEZE7" class="login-logo">
+        <div class="login-copy">
+          <span class="overline">SISTEMA INTERNO</span>
+          <h1>Gestão simples.<br>Decisão rápida.</h1>
+          <p>Vendas, estoque, custos, despesas e resultado em um único painel.</p>
+        </div>
+        <div class="login-proof"><span></span> Acesso exclusivo à equipe DEZE7</div>
+      </div>
+      <div class="login-form-panel">
+        <div class="login-card">
+          <span class="overline">BEM-VINDO</span>
+          <h2>Entrar no painel</h2>
+          <p class="muted">Use seu acesso autorizado da DEZE7.</p>
+          <form id="loginform">
+            <label class="control"><span>E-mail</span><input id="email" type="email" autocomplete="username" required placeholder="seu@email.com"></label>
+            <label class="control"><span>Senha</span><input id="password" type="password" autocomplete="current-password" required placeholder="••••••••"></label>
+            <button class="btn btn-primary btn-lg full">Entrar</button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div id="mgmt" class="app-shell hidden">
+    <aside class="sidebar">
+      <div class="sidebar-brand">
+        <img src="assets/logo-deze7.png" alt="DEZE7">
+        <span>GESTÃO</span>
+      </div>
+
+      <nav class="side-nav" aria-label="Navegação principal">
+        <button class="nav-item active" data-view="dashboard"><span class="nav-mark"></span><span>Visão geral</span></button>
+        <button class="nav-item" data-view="sales" data-permission="sell"><span class="nav-mark"></span><span>Vendas</span></button>
+        <button class="nav-item" data-view="products"><span class="nav-mark"></span><span>Produtos</span></button>
+        <button class="nav-item" data-view="stock"><span class="nav-mark"></span><span>Estoque</span></button>
+        <button class="nav-item" data-view="expenses" data-permission="finance"><span class="nav-mark"></span><span>Despesas</span></button>
+        <button class="nav-item" data-view="customers" data-permission="customer"><span class="nav-mark"></span><span>Clientes</span></button>
+        <button class="nav-item" data-view="suppliers" data-permission="supplier"><span class="nav-mark"></span><span>Fornecedores</span></button>
+        <button class="nav-item" data-view="reports" data-permission="reports"><span class="nav-mark"></span><span>Relatórios</span></button>
+        <button class="nav-item" data-view="access" data-permission="access"><span class="nav-mark"></span><span>Acessos</span></button>
+      </nav>
+
+      <div class="sidebar-user">
+        <div class="avatar" id="staffAvatar">D7</div>
+        <div class="sidebar-user-copy"><strong id="staffName">Equipe DEZE7</strong><span id="staffRole">Usuário</span></div>
+        <button id="logout" class="icon-btn" title="Sair">↗</button>
+      </div>
+    </aside>
+
+    <div class="app-main">
+      <header class="topbar-app">
+        <button id="menuBtn" class="icon-btn mobile-only" aria-label="Abrir menu">☰</button>
+        <div class="page-heading">
+          <span id="viewEyebrow" class="overline">DEZE7 / GESTÃO</span>
+          <h1 id="viewTitle">Visão geral</h1>
+          <p id="viewSubtitle" class="muted">Acompanhe a operação da marca em tempo real.</p>
+        </div>
+        <div class="top-actions">
+          <span id="today" class="date-chip"></span>
+          <button id="quickSale" class="btn btn-primary" data-permission="sell">+ Nova venda</button>
+        </div>
+      </header>
+
+      <main class="content">
+        <section id="view-dashboard" class="view">
+          <div class="hero-kpis">
+            <article class="kpi-card featured"><div class="kpi-top"><span>Faturamento no mês</span><span class="kpi-dot"></span></div><strong id="kpiRevenue">R$ 0,00</strong><small id="kpiRevenueSub">0 vendas registradas</small></article>
+            <article class="kpi-card finance-only"><div class="kpi-top"><span>Lucro estimado</span><span class="kpi-dot"></span></div><strong id="kpiProfit">R$ 0,00</strong><small>Após CMV e despesas</small></article>
+            <article class="kpi-card finance-only"><div class="kpi-top"><span>Despesas no mês</span><span class="kpi-dot"></span></div><strong id="kpiExpenses">R$ 0,00</strong><small id="kpiExpenseSub">0 lançamentos</small></article>
+            <article class="kpi-card"><div class="kpi-top"><span>Estoque total</span><span class="kpi-dot"></span></div><strong id="kpiStock">0</strong><small id="kpiStockSub">0 variações cadastradas</small></article>
+          </div>
+
+          <div class="quick-grid">
+            <button class="quick-card" data-go="sales" data-permission="sell"><span class="quick-plus">+</span><strong>Registrar venda</strong><small>Venda interna com baixa automática</small></button>
+            <button class="quick-card" data-go="stock" data-permission="stock"><span class="quick-plus">+</span><strong>Entrada de estoque</strong><small>Compra, ajuste ou devolução</small></button>
+            <button class="quick-card" data-go="expenses" data-permission="finance"><span class="quick-plus">+</span><strong>Lançar despesa</strong><small>Custos e gastos da operação</small></button>
+            <button class="quick-card" data-go="customers" data-permission="customer"><span class="quick-plus">+</span><strong>Novo cliente</strong><small>Cadastre para acompanhar histórico</small></button>
+          </div>
+
+          <div class="dashboard-grid">
+            <article class="panel chart-panel">
+              <div class="panel-head"><div><span class="overline">DESEMPENHO</span><h2>Vendas do mês</h2></div><span id="salesMonthTotal" class="metric-pill">R$ 0</span></div>
+              <div id="salesChart" class="bar-chart"></div>
+              <div class="chart-axis"><span>Início</span><span>Meio</span><span>Hoje</span></div>
+            </article>
+            <article class="panel">
+              <div class="panel-head"><div><span class="overline">ATENÇÃO</span><h2>Estoque baixo</h2></div><button class="text-btn" data-go="stock">Ver tudo</button></div>
+              <div id="lowStockList" class="compact-list"></div>
+            </article>
+          </div>
+
+          <div class="dashboard-grid lower">
+            <article class="panel">
+              <div class="panel-head"><div><span class="overline">RECENTES</span><h2>Últimas vendas</h2></div><button class="text-btn" data-go="sales" data-permission="sell">Abrir vendas</button></div>
+              <div id="recentSales" class="activity-list"></div>
+            </article>
+            <article class="panel finance-only">
+              <div class="panel-head"><div><span class="overline">FINANCEIRO</span><h2>Resumo do mês</h2></div><button class="text-btn" data-go="reports">Relatórios</button></div>
+              <div class="money-stack"><div><span>Receita</span><strong id="dashRevenue">R$ 0</strong></div><div><span>CMV</span><strong id="dashCogs">R$ 0</strong></div><div><span>Despesas</span><strong id="dashExpenses">R$ 0</strong></div><div class="money-result"><span>Resultado</span><strong id="dashResult">R$ 0</strong></div></div>
+            </article>
+          </div>
+        </section>
+
+        <section id="view-sales" class="view hidden" data-permission="sell">
+          <div class="section-toolbar">
+            <div><span class="overline">PDV INTERNO</span><h2>Nova venda</h2><p class="muted">Escolha o produto pela foto, selecione o tamanho e finalize.</p></div>
+            <label class="search"><span>⌕</span><input id="saleProductSearch" placeholder="Buscar produto, cor ou logo"></label>
+          </div>
+          <div class="pos-layout">
+            <div class="pos-products-wrap">
+              <div id="saleProductGrid" class="pos-product-grid"></div>
+            </div>
+            <aside class="sale-cart panel sticky-panel">
+              <div class="cart-head"><div><span class="overline">VENDA ATUAL</span><h2>Carrinho</h2></div><span id="saleItemCount" class="metric-pill">0 itens</span></div>
+              <div id="saleCartEmpty" class="empty-state compact">Selecione um tamanho em um produto para começar.</div>
+              <div id="saleCartList" class="sale-cart-list"></div>
+              <div class="sale-fields">
+                <label class="control"><span>Cliente</span><select id="saleCustomer"></select></label>
+                <div class="field-row"><label class="control"><span>Canal</span><select id="saleChannel"><option value="loja">Loja</option><option value="whatsapp">WhatsApp</option><option value="instagram">Instagram</option><option value="atacado">Atacado</option><option value="site">Site</option><option value="outro">Outro</option></select></label><label class="control"><span>Pagamento</span><select id="salePayment"><option>Pix</option><option>Dinheiro</option><option>Cartão débito</option><option>Cartão crédito</option><option>Transferência</option><option>Outro</option></select></label></div>
+                <label class="control"><span>Desconto</span><input id="saleDiscount" type="number" min="0" step="0.01" value="0"></label>
+                <label class="control"><span>Observações</span><textarea id="saleNotes" rows="2" placeholder="Opcional"></textarea></label>
+              </div>
+              <div class="cart-summary"><div><span>Subtotal</span><strong id="saleSubtotal">R$ 0,00</strong></div><div><span>Desconto</span><strong id="saleDiscountValue">R$ 0,00</strong></div><div class="cart-total"><span>Total</span><strong id="saleTotal">R$ 0,00</strong></div></div>
+              <button id="finishSale" class="btn btn-primary btn-lg full">Finalizar venda</button>
+            </aside>
+          </div>
+          <article class="panel mt-24"><div class="panel-head"><div><span class="overline">HISTÓRICO</span><h2>Vendas registradas</h2></div><label class="search small"><span>⌕</span><input id="salesSearch" placeholder="Buscar venda ou cliente"></label></div><div class="table-scroll"><table class="data-table"><thead><tr><th>Venda</th><th>Data</th><th>Cliente</th><th>Canal</th><th>Total</th><th class="finance-col">Custo</th><th class="finance-col">Margem</th></tr></thead><tbody id="salesTable"></tbody></table></div></article>
+        </section>
+
+        <section id="view-products" class="view hidden">
+          <div class="section-toolbar">
+            <div><span class="overline">CATÁLOGO INTERNO</span><h2>Produtos</h2><p class="muted">Fotos, preços, custos, margem e identidade de cada peça.</p></div>
+            <div class="toolbar-actions"><label class="search"><span>⌕</span><input id="productSearch" placeholder="Buscar produto"></label><button id="newProduct" class="btn btn-primary" data-permission="product-edit">+ Produto</button></div>
+          </div>
+          <div id="productEditor" class="panel editor-panel hidden" data-permission="product-edit">
+            <div class="panel-head"><div><span class="overline">CADASTRO</span><h2 id="productEditorTitle">Novo produto</h2></div><button id="closeProductEditor" class="icon-btn">×</button></div>
+            <form id="productForm"><input id="productId" type="hidden"><div class="form-grid four"><label class="control span-2"><span>Nome</span><input id="productName" required></label><label class="control"><span>Categoria</span><select id="productCategory"><option value="camiseta">Camiseta</option><option value="kit">Kit</option><option value="acessorio">Acessório</option></select></label><label class="control"><span>Status</span><select id="productActive"><option value="true">Ativo</option><option value="false">Inativo</option></select></label><label class="control"><span>Cor</span><input id="productColor"></label><label class="control"><span>Logo / design</span><select id="productDesign"><option value="simbolo">Símbolo</option><option value="wordmark">DEZE7 escrito</option><option value="">Outro</option></select></label><label class="control"><span>Preço de venda</span><input id="productPrice" type="number" min="0" step="0.01" required></label><label class="control"><span>Custo unitário</span><input id="productCost" type="number" min="0" step="0.01"></label><label class="control span-2"><span>Imagem</span><input id="productImage" placeholder="assets/arquivo.webp"></label><label class="control span-2"><span>Descrição</span><input id="productDescription"></label></div><div class="form-actions"><button class="btn btn-primary">Salvar produto</button><button type="button" id="clearProduct" class="btn btn-secondary">Limpar</button></div></form>
+          </div>
+          <div id="productsGrid" class="products-grid"></div>
+        </section>
+
+        <section id="view-stock" class="view hidden">
+          <div class="section-toolbar"><div><span class="overline">INVENTÁRIO</span><h2>Estoque</h2><p class="muted">Saldo por produto, logo, cor e tamanho.</p></div><label class="search"><span>⌕</span><input id="stockSearch" placeholder="Buscar produto ou SKU"></label></div>
+          <div class="stock-summary-row"><div class="mini-stat"><span>Unidades</span><strong id="stockTotal">0</strong></div><div class="mini-stat"><span>Sem estoque</span><strong id="stockZero">0</strong></div><div class="mini-stat"><span>Estoque baixo</span><strong id="stockLow">0</strong></div><div class="mini-stat"><span>Produtos ativos</span><strong id="stockProducts">0</strong></div></div>
+          <article class="panel"><div id="stockCards" class="stock-cards"></div></article>
+          <article class="panel mt-24"><div class="panel-head"><div><span class="overline">RASTREABILIDADE</span><h2>Últimas movimentações</h2></div></div><div class="table-scroll"><table class="data-table"><thead><tr><th>Data</th><th>Produto</th><th>Tipo</th><th>Qtd.</th><th>Motivo</th></tr></thead><tbody id="movementTable"></tbody></table></div></article>
+        </section>
+
+        <section id="view-expenses" class="view hidden" data-permission="finance">
+          <div class="section-toolbar"><div><span class="overline">FINANCEIRO</span><h2>Despesas</h2><p class="muted">Acompanhe gastos fixos, variáveis e fornecedores.</p></div><button id="toggleExpenseForm" class="btn btn-primary">+ Lançar despesa</button></div>
+          <div class="finance-kpis"><div class="mini-stat"><span>Pago no mês</span><strong id="expensePaidMonth">R$ 0</strong></div><div class="mini-stat"><span>Pendente</span><strong id="expensePending">R$ 0</strong></div><div class="mini-stat"><span>Total do mês</span><strong id="expenseMonthTotal">R$ 0</strong></div></div>
+          <div id="expenseEditor" class="panel editor-panel hidden"><div class="panel-head"><div><span class="overline">NOVO LANÇAMENTO</span><h2>Registrar despesa</h2></div><button id="closeExpenseEditor" class="icon-btn">×</button></div><form id="expenseForm"><div class="form-grid four"><label class="control"><span>Data</span><input id="expenseDate" type="date" required></label><label class="control"><span>Categoria</span><select id="expenseCategory"></select></label><label class="control"><span>Fornecedor</span><select id="expenseSupplier"></select></label><label class="control"><span>Valor</span><input id="expenseAmount" type="number" min="0" step="0.01" required></label><label class="control span-2"><span>Descrição</span><input id="expenseDescription" required></label><label class="control"><span>Pagamento</span><select id="expensePayment"><option>Pix</option><option>Dinheiro</option><option>Cartão</option><option>Boleto</option><option>Transferência</option><option>Outro</option></select></label><label class="control"><span>Status</span><select id="expenseStatus"><option value="paid">Pago</option><option value="pending">Pendente</option></select></label></div><button class="btn btn-primary">Salvar despesa</button></form></div>
+          <article class="panel"><div class="panel-head"><div><span class="overline">LANÇAMENTOS</span><h2>Histórico</h2></div><label class="search small"><span>⌕</span><input id="expenseSearch" placeholder="Buscar despesa"></label></div><div id="expensesList" class="finance-list"></div></article>
+        </section>
+
+        <section id="view-customers" class="view hidden" data-permission="customer">
+          <div class="section-toolbar"><div><span class="overline">RELACIONAMENTO</span><h2>Clientes</h2><p class="muted">Cadastro e histórico de compras da base.</p></div><button id="toggleCustomerForm" class="btn btn-primary">+ Cliente</button></div>
+          <div id="customerEditor" class="panel editor-panel hidden"><div class="panel-head"><div><span class="overline">CADASTRO</span><h2>Novo cliente</h2></div><button id="closeCustomerEditor" class="icon-btn">×</button></div><form id="customerForm"><div class="form-grid four"><label class="control"><span>Nome</span><input id="customerName" required></label><label class="control"><span>WhatsApp</span><input id="customerPhone"></label><label class="control"><span>E-mail</span><input id="customerEmail" type="email"></label><label class="control"><span>Cidade</span><input id="customerCity"></label></div><button class="btn btn-primary">Salvar cliente</button></form></div>
+          <label class="search standalone"><span>⌕</span><input id="customerSearch" placeholder="Buscar cliente"></label>
+          <div id="customersGrid" class="customer-grid"></div>
+        </section>
+
+        <section id="view-suppliers" class="view hidden" data-permission="supplier">
+          <div class="section-toolbar"><div><span class="overline">COMPRAS</span><h2>Fornecedores</h2><p class="muted">Centralize contatos e histórico de relacionamento.</p></div><button id="toggleSupplierForm" class="btn btn-primary">+ Fornecedor</button></div>
+          <div id="supplierEditor" class="panel editor-panel hidden"><div class="panel-head"><div><span class="overline">CADASTRO</span><h2>Novo fornecedor</h2></div><button id="closeSupplierEditor" class="icon-btn">×</button></div><form id="supplierForm"><div class="form-grid four"><label class="control"><span>Empresa</span><input id="supplierName" required></label><label class="control"><span>Contato</span><input id="supplierContact"></label><label class="control"><span>Telefone</span><input id="supplierPhone"></label><label class="control"><span>E-mail</span><input id="supplierEmail" type="email"></label></div><button class="btn btn-primary">Salvar fornecedor</button></form></div>
+          <div id="suppliersGrid" class="supplier-grid"></div>
+        </section>
+
+        <section id="view-reports" class="view hidden" data-permission="reports">
+          <div class="section-toolbar"><div><span class="overline">INTELIGÊNCIA</span><h2>Relatórios</h2><p class="muted">Resultado, canais, produtos e despesas por período.</p></div><label class="control compact-control"><span>Mês</span><input id="reportMonth" type="month"></label></div>
+          <div class="report-kpis"><div class="kpi-card"><span>Faturamento</span><strong id="repRevenue">R$ 0</strong></div><div class="kpi-card"><span>CMV</span><strong id="repCogs">R$ 0</strong></div><div class="kpi-card"><span>Despesas</span><strong id="repExpenses">R$ 0</strong></div><div class="kpi-card featured"><span>Lucro estimado</span><strong id="repProfit">R$ 0</strong></div><div class="kpi-card"><span>Margem</span><strong id="repMargin">0%</strong></div></div>
+          <div class="dashboard-grid"><article class="panel"><div class="panel-head"><div><span class="overline">ORIGEM</span><h2>Vendas por canal</h2></div></div><div id="channelReport" class="rank-list"></div></article><article class="panel"><div class="panel-head"><div><span class="overline">SAÍDAS</span><h2>Despesas por categoria</h2></div></div><div id="expenseReport" class="rank-list"></div></article></div>
+          <div class="dashboard-grid lower"><article class="panel"><div class="panel-head"><div><span class="overline">PRODUTOS</span><h2>Mais vendidos</h2></div></div><div id="productReport" class="rank-list"></div></article><article class="panel"><div class="panel-head"><div><span class="overline">TENDÊNCIA</span><h2>Faturamento diário</h2></div></div><div id="reportDailyChart" class="bar-chart tall"></div></article></div>
+        </section>
+
+        <section id="view-access" class="view hidden" data-permission="access">
+          <div class="section-toolbar"><div><span class="overline">EQUIPE</span><h2>Acessos e funções</h2><p class="muted">Controle quem enxerga vendas, financeiro e estoque.</p></div></div>
+          <article class="panel"><div class="panel-head"><div><span class="overline">USUÁRIOS AUTORIZADOS</span><h2>Equipe DEZE7</h2></div><span class="muted">Novos logins são vinculados ao Supabase Auth.</span></div><div id="staffList" class="staff-list"></div></article>
+          <div class="permission-grid"><article class="permission-card"><strong>Vendedor</strong><p>Vendas, clientes, consulta de produtos e estoque. Não vê custos, despesas ou lucro.</p></article><article class="permission-card"><strong>Gestor</strong><p>Visão operacional completa, produtos, estoque, vendas, financeiro e relatórios.</p></article><article class="permission-card"><strong>Financeiro</strong><p>Despesas, fornecedores, relatórios e consulta de vendas.</p></article><article class="permission-card"><strong>Estoque</strong><p>Produtos, fornecedores, entradas, devoluções e ajustes de saldo.</p></article><article class="permission-card accent"><strong>Administrador</strong><p>Acesso total ao sistema e gerenciamento de funções da equipe.</p></article></div>
+        </section>
+      </main>
+    </div>
+  </div>
+
+  <script src="config.js"></script>
+  <script type="module" src="admin.js"></script>
+</body>
+</html>

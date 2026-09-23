@@ -1,32 +1,46 @@
-# DEZE7 — Gestão Interna + Loja Separada
+# DEZE7 — Sistema Interno de Gestão
 
-A DEZE7 está dividida em duas partes independentes nesta etapa.
+Painel interno independente da loja pública, usando GitHub Pages + Supabase.
 
-## 1. Sistema interno de gestão
-O arquivo `admin.html` é o painel restrito à equipe autorizada. Ele administra:
-- visão geral com indicadores;
-- vendas internas e baixa automática de estoque;
-- produtos, preço de venda e custo;
-- estoque por tamanho e histórico de movimentações;
-- despesas e categorias;
-- clientes;
-- fornecedores;
-- relatórios de faturamento, CMV, despesas, lucro e margem.
+## Redesign 2026
+O painel foi refeito para funcionar como um ERP/PDV leve da DEZE7:
+- dashboard executivo com faturamento, lucro, despesas e estoque;
+- PDV visual com fotos dos produtos e seleção por tamanho;
+- produtos em cards com preço, custo, margem, cor e identidade da logo;
+- estoque por produto, logo, cor, tamanho e SKU;
+- movimentações de estoque com rastreabilidade;
+- despesas, fornecedores e categorias;
+- clientes com resumo de compras;
+- relatórios de faturamento, CMV, despesas, lucro, margem, canais e produtos;
+- perfis de acesso por função: administrador, gestor, vendedor, financeiro e estoque;
+- layout responsivo para computador e celular.
 
-O acesso usa Supabase Auth e a tabela `deze7_staff`. Usuários que não estiverem autorizados não entram no painel.
+## Camisetas
+O catálogo interno considera 8 camisetas diferentes:
+- Preta — Símbolo
+- Preta — DEZE7 escrito
+- Branca — Símbolo
+- Branca — DEZE7 escrito
+- Off-white — Símbolo
+- Off-white — DEZE7 escrito
+- Cinza — Símbolo
+- Cinza — DEZE7 escrito
 
-## 2. Loja pública
-A loja (`index.html`) está propositalmente desacoplada do sistema interno. Ela funciona como apresentação da coleção e não registra vendas nem altera estoque no painel. A integração com e-commerce será feita em uma etapa posterior.
+Cada camiseta possui tamanhos P, M e G. O estoque inicial das 24 variações está em zero.
 
-## Banco de dados
-Os dados internos usam tabelas com prefixo `deze7_`, separadas das tabelas do Immagine. Entre elas:
-- `deze7_products` e `deze7_variants`;
-- `deze7_staff`;
-- `deze7_sales` e `deze7_sale_items`;
-- `deze7_stock_movements`;
-- `deze7_expenses` e `deze7_expense_categories`;
-- `deze7_customers`;
-- `deze7_suppliers`.
+## Kits
+Os kits continuam usando as imagens já existentes:
+- Camiseta + corrente
+- Camiseta + porta-cartões
 
 ## Segurança
-O frontend contém apenas a chave pública publishable do Supabase. Não coloque `service_role`, senha do banco ou outras chaves secretas no GitHub.
+O painel usa Supabase Auth e RLS. A permissão é aplicada no banco, e não apenas escondida na interface.
+
+- Vendedor: vendas, clientes e consulta de estoque/produtos.
+- Gestor: gestão operacional e financeira.
+- Financeiro: despesas, fornecedores e relatórios.
+- Estoque: produtos, fornecedores e movimentações de estoque.
+- Administrador: acesso completo.
+
+## Loja pública
+A loja pública permanece desacoplada nesta etapa. Ela não cria vendas nem movimenta estoque do painel interno.
