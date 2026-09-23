@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#090909">
+  <title>DEZE7 — Primeiro acesso</title>
+  <link rel="stylesheet" href="styles.css">
+  <style>
+    body{min-height:100vh;background:#090909;color:#f5f2ec}
+    .access-page{min-height:100vh;display:grid;place-items:center;padding:28px}
+    .access-card{width:min(520px,100%);background:#111;border:1px solid #292929;border-radius:22px;padding:32px;box-shadow:0 24px 70px rgba(0,0,0,.35)}
+    .access-logo{width:150px;max-height:58px;object-fit:contain;object-position:left center;margin-bottom:24px}
+    .access-card h1{font-size:36px;line-height:1.05;margin:8px 0 10px}
+    .access-card p{color:#aaa59c;line-height:1.6}
+    .access-card .control{display:flex;flex-direction:column;gap:8px;margin:15px 0}
+    .access-card input{background:#0b0b0b;color:#fff;border:1px solid #343434;border-radius:12px;padding:14px}
+    .access-card .actions{display:grid;gap:10px;margin-top:20px}
+    .msg{margin-top:18px;padding:13px 14px;border:1px solid #333;border-radius:12px;color:#d7d3cc;display:none}
+    .msg.ok{display:block;border-color:#2d5d3b;background:#0f1a12}
+    .msg.warn{display:block;border-color:#725b2d;background:#1d180f}
+    .msg.err{display:block;border-color:#6b3030;background:#1c1010}
+    .small{font-size:13px;color:#8e8a83}
+    .link{color:#fff;text-decoration:underline}
+  </style>
+</head>
+<body>
+  <main class="access-page">
+    <section class="access-card">
+      <img src="assets/logo-deze7.png" class="access-logo" alt="DEZE7">
+      <span class="overline">SISTEMA INTERNO</span>
+      <h1>Ativar acesso</h1>
+      <p>Esta página é somente para e-mails previamente autorizados pela DEZE7. Escolha sua senha e ative sua conta.</p>
+
+      <label class="control"><span>E-mail autorizado</span><input id="email" type="email" autocomplete="username" placeholder="seu@email.com" required></label>
+      <label class="control"><span>Crie sua senha</span><input id="password" type="password" autocomplete="new-password" minlength="6" placeholder="mínimo 6 caracteres" required></label>
+
+      <div class="actions">
+        <button id="create" class="btn btn-primary btn-lg full">Criar primeiro acesso</button>
+        <button id="activate" class="btn btn-secondary btn-lg full">Já confirmei meu e-mail / Ativar</button>
+      </div>
+
+      <div id="msg" class="msg"></div>
+      <p class="small">Depois da ativação, o acesso normal será feito pelo <a class="link" href="admin.html">Painel DEZE7</a>.</p>
+    </section>
+  </main>
+
+  <script src="config.js"></script>
+  <script type="module">
+    import { getSupabase } from './supabase-client.js';
+
+    const $ = id => document.getElementById(id);
+    let sb;
+
+    function message(text,type='warn'){
+      const el=$('msg'); el.textContent=text; el.className='msg '+type;
+    }
+    function credentials(){
+      const email=$('email').value.trim().toLowerCase();
+      const password=$('password').value;
+      if(!email || !password){ message('Informe o e-mail e a senha.','err'); return null; }
+      if(password.length<6){ message('A senha precisa ter pelo menos 6 caracteres.','err'); return null; }
+      return {email,password};
+    }
+    async function claim(){
+      const {error}=await sb.rpc('deze7_claim_preapproved_access');
+      if(error) throw error;
+      message('Acesso ativado. Abrindo o painel...','ok');
+      setTimeout(()=>location.href='admin.html',700);
+    }
+
+    $('create').onclick=async()=>{
+      const c=credentials(); if(!c)return;
+      $('create').disabled=true;
+      message('Criando sua conta...','warn');
+      try{
+        const {data,error}=await sb.auth.signUp({
+          email:c.email,
+          password:c.password,
+          options:{emailRedirectTo: location.href}
+        });
+        if(error) throw error;
+        if(data.session){
+          await claim();
+        }else{
+          message('Conta criada. Verifique seu e-mail e confirme o cadastro. Depois volte aqui e clique em “Já confirmei meu e-mail / Ativar”.','ok');
+        }
+      }catch(e){
+        const t=String(e.message||e);
+        if(/already|registered|exists/i.test(t)){
+          message('Esse e-mail já possui conta. Clique em “Já confirmei meu e-mail / Ativar”.','warn');
+        }else{
+          message(t,'err');
+        }
+      }finally{$('create').disabled=false}
+    };
+
+    $('activate').onclick=async()=>{
+      const c=credentials(); if(!c)return;
+      $('activate').disabled=true;
+      message('Validando acesso...','warn');
+      try{
+        const {error}=await sb.auth.signInWithPassword(c);
+        if(error) throw error;
+        await claim();
+      }catch(e){
+        message(String(e.message||e),'err');
+      }finally{$('activate').disabled=false}
+    };
+
+    (async()=>{
+      sb=await getSupabase();
+      if(!sb) message('Configuração do Supabase não encontrada.','err');
+    })();
+  </script>
+</body>
+</html>
