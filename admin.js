@@ -13,6 +13,8 @@ const esc=v=>String(v??'').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&
 
 let sb=null;
 let currentStaff=null;
+let currentUserEmail='';
+const AUDIT_OWNER_EMAIL='immgcv@gmail.com';
 let saleLines=[];
 let bundleEditingProductId=null;
 let state={
@@ -33,6 +35,13 @@ const permissions={
 const can = p => !p || (permissions[p]||[]).includes(currentStaff?.role);
 const roleLabel=r=>({admin:'Administrador',manager:'Gestor',seller:'Vendedor',finance:'Financeiro',stock:'Estoque'}[r]||r||'Usuário');
 const designLabel=d=>d==='wordmark'?'DEZE7 escrito':d==='simbolo'?'Símbolo':'Outro';
+const isAuditOwner=()=>currentUserEmail===AUDIT_OWNER_EMAIL;
+function auditActor(uid){
+  if(!isAuditOwner()||!uid)return '';
+  const s=state.staff.find(x=>x.user_id===uid);
+  const who=uid===currentStaff?.user_id?`Você · ${currentUserEmail}`:(s?.name||'Usuário não identificado');
+  return `<small style="display:block;margin-top:4px;color:#8f8a82;font-size:11px">Lançado por: ${esc(who)}</small>`;
+}
 
 function toast(message,type='ok'){
   const t=$('toast'); t.textContent=message; t.className=`toast show ${type}`;
@@ -96,6 +105,8 @@ async function login(e){
   await authorize(data.user.id);
 }
 async function authorize(uid){
+  const {data:{user}}=await sb.auth.getUser();
+  currentUserEmail=(user?.email||'').trim().toLowerCase();
   const {data,error}=await sb.from('deze7_staff').select('user_id,name,role,active').eq('user_id',uid).eq('active',true).maybeSingle();
   if(error||!data){await sb.auth.signOut();toast('Este usuário não está autorizado na DEZE7.','error');return}
   currentStaff=data;
@@ -161,14 +172,17 @@ function showView(view){
 
 async function loadAll(){
   const req=[];
+  const movementSelect=isAuditOwner()?'*':'id,variant_id,movement_type,quantity_delta,reason,reference_type,reference_id,created_at';
+  const saleSelect=isAuditOwner()?'*':'id,sale_number,sale_date,customer_id,channel,payment_method,payment_status,status,subtotal,discount,total,cogs,notes,created_at,updated_at';
+  const expenseSelect=isAuditOwner()?'*':'id,expense_date,due_date,paid_at,category_id,supplier_id,description,amount,payment_method,status,notes,created_at,updated_at';
   req.push(['products',sb.from('deze7_products').select('*').order('sort_order')]);
   req.push(['variants',sb.from('deze7_variants').select('*').order('sku')]);
   req.push(['bundleRules',sb.from('deze7_bundle_rules').select('*').order('sort_order')]);
-  req.push(['movements',sb.from('deze7_stock_movements').select('*').order('created_at',{ascending:false}).limit(300)]);
+  req.push(['movements',sb.from('deze7_stock_movements').select(movementSelect).order('created_at',{ascending:false}).limit(300)]);
   if(can('customer')) req.push(['customers',sb.from('deze7_customers').select('*').eq('active',true).order('name')]);
-  if(['admin','manager','seller','finance'].includes(currentStaff.role)) req.push(['sales',sb.from('deze7_sales').select('*').order('sale_date',{ascending:false}).limit(1000)]);
+  if(['admin','manager','seller','finance'].includes(currentStaff.role)) req.push(['sales',sb.from('deze7_sales').select(saleSelect).order('sale_date',{ascending:false}).limit(1000)]);
   if(can('finance')){
-    req.push(['expenses',sb.from('deze7_expenses').select('*').order('expense_date',{ascending:false}).limit(1000)]);
+    req.push(['expenses',sb.from('deze7_expenses').select(expenseSelect).order('expense_date',{ascending:false}).limit(1000)]);
     req.push(['categories',sb.from('deze7_expense_categories').select('*').eq('active',true).order('sort_order')]);
   }
   if(can('supplier')) req.push(['suppliers',sb.from('deze7_suppliers').select('*').eq('active',true).order('name')]);
@@ -217,7 +231,7 @@ function renderLowStock(){
 }
 function renderRecentSales(){
   const cm=customerMap();const rows=state.sales.slice(0,6);
-  $('recentSales').innerHTML=rows.length?rows.map(s=>`<div class="activity-row"><div class="activity-icon">#${s.sale_number}</div><div><strong>${esc(cm[s.customer_id]?.name||'Venda balcão')}</strong><span>${dateTimeBR(s.sale_date)} · ${esc(s.channel)}</span></div><b>${money(s.total)}</b></div>`).join(''):'<div class="empty-state compact">Nenhuma venda registrada ainda.</div>';
+  $('recentSales').innerHTML=rows.length?rows.map(s=>`<div class="activity-row"><div class="activity-icon">#${s.sale_number}</div><div><strong>${esc(cm[s.customer_id]?.name||'Venda balcão')}</strong><span>${dateTimeBR(s.sale_date)} · ${esc(s.channel)}</span>${auditActor(s.seller_id)}</div><b>${money(s.total)}</b></div>`).join(''):'<div class="empty-state compact">Nenhuma venda registrada ainda.</div>';
 }
 
 function renderSaleProducts(){
@@ -420,7 +434,7 @@ async function saveSale(){
 function renderSalesHistory(){
   const q=$('salesSearch').value.trim().toLowerCase(),cm=customerMap();
   const rows=state.sales.filter(s=>!q||`${s.sale_number} ${cm[s.customer_id]?.name||''} ${s.channel}`.toLowerCase().includes(q));
-  $('salesTable').innerHTML=rows.map(s=>{const margin=num(s.total)-num(s.cogs);return `<tr><td><b>#${s.sale_number}</b></td><td>${dateTimeBR(s.sale_date)}</td><td>${esc(cm[s.customer_id]?.name||'Balcão')}</td><td><span class="tag">${esc(s.channel)}</span></td><td><b>${money(s.total)}</b></td><td class="finance-col">${money(s.cogs)}</td><td class="finance-col"><span class="positive">${money(margin)}</span></td></tr>`}).join('')||`<tr><td colspan="7"><div class="empty-state compact">Nenhuma venda encontrada.</div></td></tr>`;
+  $('salesTable').innerHTML=rows.map(s=>{const margin=num(s.total)-num(s.cogs);return `<tr><td><b>#${s.sale_number}</b></td><td>${dateTimeBR(s.sale_date)}${auditActor(s.seller_id)}</td><td>${esc(cm[s.customer_id]?.name||'Balcão')}</td><td><span class="tag">${esc(s.channel)}</span></td><td><b>${money(s.total)}</b></td><td class="finance-col">${money(s.cogs)}</td><td class="finance-col"><span class="positive">${money(margin)}</span></td></tr>`}).join('')||`<tr><td colspan="7"><div class="empty-state compact">Nenhuma venda encontrada.</div></td></tr>`;
   applyRoleUI();
 }
 
@@ -475,7 +489,7 @@ function renderStock(){
     return `<div class="stock-product"><div class="stock-product-info"><img src="${esc(imageFor(p))}" alt=""><div><strong>${esc(p.name)}</strong><span>${esc(descriptor)}</span><small>${vs.map(v=>esc(v.sku)).join(' · ')}</small></div></div><div class="stock-sizes">${vs.sort((a,b)=>String(a.size).localeCompare(String(b.size))).map(v=>`<div class="stock-size-card ${num(v.stock)===0?'zero':num(v.stock)<=num(v.min_stock??3)?'low':''}"><span>${esc(v.size||'-')}</span><strong>${v.stock}</strong><small>unidades</small>${can('stock')?`<button class="text-btn" data-adjust-stock="${v.id}">Ajustar</button>`:''}</div>`).join('')}</div></div>`
   }).join('')||'<div class="empty-state">Nenhum produto encontrado.</div>';
   $$('[data-adjust-stock]').forEach(b=>b.onclick=()=>adjustStock(b.dataset.adjustStock));
-  const vm=variantMap();$('movementTable').innerHTML=state.movements.slice(0,150).map(m=>{const v=vm[m.variant_id],p=v&&pm[v.product_id];return `<tr><td>${dateTimeBR(m.created_at)}</td><td>${esc(p?.name||'-')} · ${esc(v?.size||'')}</td><td><span class="tag">${esc(m.movement_type)}</span></td><td class="${num(m.quantity_delta)>0?'positive':'negative'}"><b>${num(m.quantity_delta)>0?'+':''}${m.quantity_delta}</b></td><td>${esc(m.reason||'-')}</td></tr>`}).join('')||`<tr><td colspan="5"><div class="empty-state compact">Nenhuma movimentação.</div></td></tr>`;
+  const vm=variantMap();$('movementTable').innerHTML=state.movements.slice(0,150).map(m=>{const v=vm[m.variant_id],p=v&&pm[v.product_id];return `<tr><td>${dateTimeBR(m.created_at)}</td><td>${esc(p?.name||'-')} · ${esc(v?.size||'')}</td><td><span class="tag">${esc(m.movement_type)}</span></td><td class="${num(m.quantity_delta)>0?'positive':'negative'}"><b>${num(m.quantity_delta)>0?'+':''}${m.quantity_delta}</b></td><td>${esc(m.reason||'-')}${auditActor(m.created_by)}</td></tr>`}).join('')||`<tr><td colspan="5"><div class="empty-state compact">Nenhuma movimentação.</div></td></tr>`;
 }
 async function adjustStock(id){
   if(!can('stock'))return;const v=variantMap()[id],p=productMap()[v.product_id];const target=prompt(`${p.name} · ${v.size}\nEstoque atual: ${v.stock}\nDigite o NOVO saldo:`);if(target===null)return;const next=Math.max(0,parseInt(target,10)||0),delta=next-num(v.stock);if(!delta)return;const reason=prompt('Motivo do ajuste:','Ajuste pelo painel')||'Ajuste pelo painel';const {error}=await sb.rpc('deze7_adjust_stock',{p_variant_id:id,p_quantity_delta:delta,p_reason:reason,p_movement_type:'adjustment'});if(error)return toast(error.message,'error');await loadAll();toast('Estoque atualizado.');
@@ -486,7 +500,7 @@ function renderExpenses(){
   const paid=month.filter(e=>e.status==='paid').reduce((a,e)=>a+num(e.amount),0),pending=state.expenses.filter(e=>e.status==='pending').reduce((a,e)=>a+num(e.amount),0),total=month.reduce((a,e)=>a+num(e.amount),0);
   $('expensePaidMonth').textContent=money(paid);$('expensePending').textContent=money(pending);$('expenseMonthTotal').textContent=money(total);
   const cm=categoryMap(),sm=supplierMap();const rows=state.expenses.filter(e=>!q||`${e.description} ${cm[e.category_id]?.name||''} ${sm[e.supplier_id]?.name||''}`.toLowerCase().includes(q));
-  $('expensesList').innerHTML=rows.map(e=>`<div class="finance-row"><div class="finance-date"><b>${dateBR(e.expense_date+'T12:00:00')}</b><span>${e.status==='paid'?'Pago':'Pendente'}</span></div><div class="finance-desc"><strong>${esc(e.description)}</strong><span>${esc(cm[e.category_id]?.name||'Sem categoria')} · ${esc(sm[e.supplier_id]?.name||'Sem fornecedor')}</span></div><div class="finance-value">${money(e.amount)}</div></div>`).join('')||'<div class="empty-state compact">Nenhuma despesa encontrada.</div>';
+  $('expensesList').innerHTML=rows.map(e=>`<div class="finance-row"><div class="finance-date"><b>${dateBR(e.expense_date+'T12:00:00')}</b><span>${e.status==='paid'?'Pago':'Pendente'}</span></div><div class="finance-desc"><strong>${esc(e.description)}</strong><span>${esc(cm[e.category_id]?.name||'Sem categoria')} · ${esc(sm[e.supplier_id]?.name||'Sem fornecedor')}</span>${auditActor(e.created_by)}</div><div class="finance-value">${money(e.amount)}</div></div>`).join('')||'<div class="empty-state compact">Nenhuma despesa encontrada.</div>';
 }
 async function saveExpense(e){e.preventDefault();const payload={expense_date:$('expenseDate').value,category_id:$('expenseCategory').value||null,supplier_id:$('expenseSupplier').value||null,description:$('expenseDescription').value.trim(),amount:num($('expenseAmount').value),payment_method:$('expensePayment').value,status:$('expenseStatus').value,created_by:currentStaff.user_id};const {error}=await sb.from('deze7_expenses').insert(payload);if(error)return toast(error.message,'error');e.target.reset();$('expenseDate').value=todayISO();togglePanel('expenseEditor',false);await loadAll();toast('Despesa registrada.')}
 
